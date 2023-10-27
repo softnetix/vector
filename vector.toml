@@ -1,0 +1,26 @@
+data_dir = "/var/lib/vector"
+
+[sources.validator_access_logs]
+type = "file"
+include = ["/usr/local/openresty/nginx/logs/protection-validator.validate-request.access.log"]
+ignore_older = 86400          # 1 day
+
+[transforms.parse_json]
+inputs = ["validator_access_logs"]
+type = "remap"
+source = '''
+. = parse_json!(.message, max_depth: 1)
+'''
+
+[sinks.click_house]
+type = "clickhouse"
+inputs = ["parse_json"]
+endpoint = "http://clickhouse:8123"
+database = "protection"
+table = "test"
+skip_unknown_fields = true
+
+#[sinks.console]
+#inputs = ["parse_json"]
+#type = "console"
+#encoding.codec = "text"
