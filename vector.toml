@@ -21,6 +21,11 @@ database = "protection"
 table = "requests"
 skip_unknown_fields = true
 
+[sinks.click_house.auth]
+strategy = "basic"
+password = "${CLICKHOUSE_PASSWORD}"
+user = "${CLICKHOUSE_USER}"
+
 #[sinks.console]
 #inputs = ["parse_json"]
 #type = "console"
