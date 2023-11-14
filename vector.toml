@@ -15,7 +15,7 @@ source = '''
 [sinks.click_house]
 type = "clickhouse"
 inputs = ["parse_json"]
-encoding.timestamp_format = "rfc3339"
+encoding.timestamp_format = "unix"
 endpoint = "http://clickhouse:8123"
 database = "protection"
 table = "requests"
