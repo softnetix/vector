@@ -10,6 +10,10 @@ inputs = ["validator_access_logs"]
 type = "remap"
 source = '''
 . = parse_json!(.message, max_depth: 1)
+if is_empty(to_string(.site_key) ?? "") { .site_key = "00000000-0000-0000-0000-000000000000" }
+if is_empty(to_string(.server_key) ?? "") { .site_key = "00000000-0000-0000-0000-000000000000" }
+if is_empty(to_string(.project_id) ?? "") { .site_key = "00000000-0000-0000-0000-000000000000" }
+if is_empty(to_string(.customer_id) ?? "") { .site_key = "00000000-0000-0000-0000-000000000000" }
 '''
 
 [sinks.click_house]
