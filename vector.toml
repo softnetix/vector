@@ -3,7 +3,12 @@ data_dir = "/var/lib/vector"
 [sources.validator_access_logs]
 type = "file"
 include = ["/usr/local/openresty/nginx/logs/protection-validator-vector.access.log"]
-ignore_older = 86400          # 1 day
+ignore_older = 86400  # 1 day
+
+[sources.validator_stress_access_logs]
+type = "file"
+include = ["/usr/local/openresty/nginx/logs/protection-validator-vector-stress.access.log"]
+ignore_older = 86400  # 1 day
 
 [transforms.parse_json]
 inputs = ["validator_access_logs"]
@@ -11,9 +16,21 @@ type = "remap"
 source = '''
 . = parse_json!(.message, max_depth: 1)
 if is_empty(to_string(.site_key) ?? "") { .site_key = "00000000-0000-0000-0000-000000000000" }
-if is_empty(to_string(.server_key) ?? "") { .site_key = "00000000-0000-0000-0000-000000000000" }
-if is_empty(to_string(.project_id) ?? "") { .site_key = "00000000-0000-0000-0000-000000000000" }
-if is_empty(to_string(.customer_id) ?? "") { .site_key = "00000000-0000-0000-0000-000000000000" }
+if is_empty(to_string(.server_key) ?? "") { .server_key = "00000000-0000-0000-0000-000000000000" }
+if is_empty(to_string(.project_id) ?? "") { .project_id = "00000000-0000-0000-0000-000000000000" }
+if is_empty(to_string(.customer_id) ?? "") { .customer_id = "00000000-0000-0000-0000-000000000000" }
+'''
+
+[transforms.parse_json_stress]
+inputs = ["validator_stress_access_logs"]
+type = "remap"
+source = '''
+. = parse_json!(.message, max_depth: 1)
+.created_at = now()
+if is_empty(to_string(.site_key) ?? "") { .site_key = "00000000-0000-0000-0000-000000000000" }
+if is_empty(to_string(.server_key) ?? "") { .server_key = "00000000-0000-0000-0000-000000000000" }
+if is_empty(to_string(.project_id) ?? "") { .project_id = "00000000-0000-0000-0000-000000000000" }
+if is_empty(to_string(.customer_id) ?? "") { .customer_id = "00000000-0000-0000-0000-000000000000" }
 '''
 
 [sinks.click_house]
@@ -24,11 +41,17 @@ endpoint = "http://clickhouse:8123"
 database = "protection"
 table = "requests"
 skip_unknown_fields = true
+auth = { strategy = "basic", password = "${CLICKHOUSE_PASSWORD}", user = "${CLICKHOUSE_USER}" }
 
-[sinks.click_house.auth]
-strategy = "basic"
-password = "${CLICKHOUSE_PASSWORD}"
-user = "${CLICKHOUSE_USER}"
+[sinks.click_house_stress]
+type = "clickhouse"
+inputs = ["parse_json_stress"]
+encoding.timestamp_format = "unix"
+endpoint = "http://clickhouse:8123"
+database = "protection"
+table = "stress_requests"
+skip_unknown_fields = true
+auth = { strategy = "basic", password = "${CLICKHOUSE_PASSWORD}", user = "${CLICKHOUSE_USER}" }
 
 #[sinks.console]
 #inputs = ["parse_json"]
