@@ -21,6 +21,7 @@ if is_nullish(.project_id) { .project_id = "00000000-0000-0000-0000-000000000000
 if is_nullish(.customer_id) { .customer_id = "00000000-0000-0000-0000-000000000000" }
 if is_nullish(.server_port) { .server_port = 0 }
 if !is_timestamp(.created_at) { .created_at = to_unix_timestamp(now(), unit: "milliseconds") }
+.remote_addr = ipv6_to_ipv4(.remote_addr) ?? replace(".remote_addr", r'.*:', "")
 '''
 
 [transforms.parse_json_stress]
