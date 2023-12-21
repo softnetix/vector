@@ -14,14 +14,19 @@ ignore_older = 86400  # 1 day
 inputs = ["validator_access_logs"]
 type = "remap"
 source = '''
-. = parse_json!(.message, max_depth: 1)
-if is_nullish(.site_key) { .site_key = "00000000-0000-0000-0000-000000000000" }
-if is_nullish(.server_key) { .server_key = "00000000-0000-0000-0000-000000000000" }
-if is_nullish(.project_id) { .project_id = "00000000-0000-0000-0000-000000000000" }
-if is_nullish(.customer_id) { .customer_id = "00000000-0000-0000-0000-000000000000" }
-if is_nullish(.server_port) { .server_port = 0 }
-if !is_timestamp(.created_at) { .created_at = to_unix_timestamp(now(), unit: "milliseconds") }
-.remote_addr = ipv6_to_ipv4(.remote_addr) ?? .remote_addr
+if (is_json(to_string!(.message))) {
+    . = parse_json!(.message, max_depth: 1)
+    if is_nullish(.site_key) { .site_key = "00000000-0000-0000-0000-000000000000" }
+    if is_nullish(.server_key) { .server_key = "00000000-0000-0000-0000-000000000000" }
+    if is_nullish(.project_id) { .project_id = "00000000-0000-0000-0000-000000000000" }
+    if is_nullish(.customer_id) { .customer_id = "00000000-0000-0000-0000-000000000000" }
+    if is_nullish(.server_port) { .server_port = 0 }
+    if !is_timestamp(.created_at) { .created_at = to_unix_timestamp(now(), unit: "milliseconds") }
+    .remote_addr = ipv6_to_ipv4(.remote_addr) ?? .remote_addr
+} else {
+    .custom_field3 = to_string!(.message)
+    .created_at = now()
+}
 '''
 
 [transforms.parse_json_stress]
