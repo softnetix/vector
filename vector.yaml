@@ -81,26 +81,26 @@ sinks:
     inputs: ["parse_json"]
     encoding:
       timestamp_format: "unix"
-    endpoint: "http://click_house_db:8123"
+    endpoint: "http://clickhouse:8123"
     database: "protection"
     table: "requests"
     skip_unknown_fields: true
     auth:
       strategy: "basic"
-      password: "root"
-      user: "root"
+      password: "${CLICKHOUSE_PASSWORD}"
+      user: "${CLICKHOUSE_USER}"
 
   click_house_stress:
     type: "clickhouse"
     inputs: ["parse_json_stress"]
     encoding:
       timestamp_format: "unix"
-    endpoint: "http://click_house_db:8123"
+    endpoint: "http://clickhouse:8123"
     database: "protection"
     table: "stress_requests"
     skip_unknown_fields: true
     auth:
       strategy: "basic"
-      password: "root"
-      user: "root"
+      password: "${CLICKHOUSE_PASSWORD}"
+      user: "${CLICKHOUSE_USER}"
 
