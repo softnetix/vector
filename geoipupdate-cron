@@ -1,0 +1,2 @@
+# geoipupdate would run twice a week at 9.50
+49 9 * * 1,4 /bin/geoipupdate
