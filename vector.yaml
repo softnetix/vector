@@ -1,0 +1,106 @@
+data_dir: "/var/lib/vector"
+
+
+# enrichment_tables
+enrichment_tables:
+  enrich_geoip_city:
+    type: "geoip"
+    path: "/usr/share/GeoIP/GeoLite2-City.mmdb"
+
+  enrich_geoip_asn:
+    type: "geoip"
+    path: "/usr/share/GeoIP/GeoLite2-ASN.mmdb"
+
+  alpha2_to_alpha3_remap:
+    type: "file"
+    file:
+      path: "/etc/vector/alpha2_to_alpha3_remap.csv"
+      encoding:
+        type: "csv"
+    schema:
+      alpha2: "string"
+      alpha3: "string"
+
+
+#sources
+sources:
+  validator_access_logs:
+    type: "file"
+    include: ["/usr/local/openresty/nginx/logs/protection-validator-vector.access.log"]
+    ignore_older: 86400  # 1 day
+
+  validator_stress_access_logs:
+    type: "file"
+    include: ["/usr/local/openresty/nginx/logs/protection-validator-vector-stress.access.log"]
+    ignore_older: 86400  # 1 day
+
+
+
+# transforms
+transforms:
+  parse_json:
+    inputs: ["validator_access_logs"]
+    type: "remap"
+    source: |
+      if (is_json(to_string!(.message))) {
+          . = parse_json!(.message, max_depth: 1)
+          if is_nullish(.site_key) { .site_key = "00000000-0000-0000-0000-000000000000" }
+          if is_nullish(.server_key) { .server_key = "00000000-0000-0000-0000-000000000000" }
+          if is_nullish(.project_id) { .project_id = "00000000-0000-0000-0000-000000000000" }
+          if is_nullish(.customer_id) { .customer_id = "00000000-0000-0000-0000-000000000000" }
+          if is_nullish(.server_port) { .server_port = 0 }
+          if !is_timestamp(.created_at) { .created_at = to_unix_timestamp(now(), unit: "milliseconds") }
+          .remote_addr = ipv6_to_ipv4(.remote_addr) ?? .remote_addr
+          .asn = get_enrichment_table_record("enrich_geoip_asn", {"ip": .remote_addr}, select: ["autonomous_system_organization"]).autonomous_system_organization ?? "-"
+      
+          country_code = get_enrichment_table_record("enrich_geoip_city", {"ip": .remote_addr}, select: ["country_code"]).country_code ?? "-"
+          .country = get_enrichment_table_record("alpha2_to_alpha3_remap", {"alpha2" : country_code}).alpha3  ?? country_code
+      } else {
+          .custom_field3 = to_string!(.message)
+          .created_at = now()
+      }
+
+  parse_json_stress:
+    inputs: ["validator_stress_access_logs"]
+    type: "remap"
+    source: |
+      . = parse_json!(.message, max_depth: 1)
+      .created_at = now()
+      if is_nullish(.site_key) { .site_key = "00000000-0000-0000-0000-000000000000" }
+      if is_nullish(.server_key) { .server_key = "00000000-0000-0000-0000-000000000000" }
+      if is_nullish(.project_id) { .project_id = "00000000-0000-0000-0000-000000000000" }
+      if is_nullish(.customer_id) { .customer_id = "00000000-0000-0000-0000-000000000000" }
+      if is_nullish(.server_port) { .server_port = 0 }
+
+
+
+# sinks
+sinks:
+  click_house:
+    type: "clickhouse"
+    inputs: ["parse_json"]
+    encoding:
+      timestamp_format: "unix"
+    endpoint: "http://click_house_db:8123"
+    database: "protection"
+    table: "requests"
+    skip_unknown_fields: true
+    auth:
+      strategy: "basic"
+      password: "root"
+      user: "root"
+
+  click_house_stress:
+    type: "clickhouse"
+    inputs: ["parse_json_stress"]
+    encoding:
+      timestamp_format: "unix"
+    endpoint: "http://click_house_db:8123"
+    database: "protection"
+    table: "stress_requests"
+    skip_unknown_fields: true
+    auth:
+      strategy: "basic"
+      password: "root"
+      user: "root"
+
