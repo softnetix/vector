@@ -10,6 +10,14 @@ type = "file"
 include = ["/usr/local/openresty/nginx/logs/protection-validator-vector-stress.access.log"]
 ignore_older = 86400  # 1 day
 
+[enrichment_tables.enrich_geoip_city]
+type = "geoip"
+path = "/usr/share/GeoIP/GeoLite2-City.mmdb"
+
+[enrichment_tables.enrich_geoip_asn]
+type = "geoip"
+path = "/usr/share/GeoIP/GeoLite2-ASN.mmdb"
+
 [transforms.parse_json]
 inputs = ["validator_access_logs"]
 type = "remap"
@@ -23,6 +31,12 @@ if (is_json(to_string!(.message))) {
     if is_nullish(.server_port) { .server_port = 0 }
     if !is_timestamp(.created_at) { .created_at = to_unix_timestamp(now(), unit: "milliseconds") }
     .remote_addr = ipv6_to_ipv4(.remote_addr) ?? .remote_addr
+
+    country_info = get_enrichment_table_record("enrich_geoip_city", {"ip": .remote_addr}) ?? {}
+    .country = country_info.country_code
+
+    asn_info = get_enrichment_table_record("enrich_geoip_asn", {"ip": .remote_addr}) ?? {}
+    .asn = asn_info.autonomous_system_organization
 } else {
     .custom_field3 = to_string!(.message)
     .created_at = now()
